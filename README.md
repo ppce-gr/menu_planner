@@ -35,7 +35,14 @@ src/
   index.js         cableado
 public/            interfaz (HTML/CSS/JS, PWA)
 test/              pruebas
+deploy/            servicio systemd
+docs/              documentación
 ```
+
+## Despliegue
+
+Ver [`docs/despliegue.md`](docs/despliegue.md): systemd + Tailscale (privado o
+Funnel para una URL HTTPS gratuita).
 
 ## Estado
 

@@ -1,0 +1,20 @@
+[Unit]
+Description=menu_planner - planificador familiar de menus
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jarvis
+WorkingDirectory=/home/jarvis/menu_planner
+Environment=PORT=3080
+Environment=DATA_DIR=/home/jarvis/menu_planner/data
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/home/jarvis/menu_planner/data
+
+[Install]
+WantedBy=multi-user.target

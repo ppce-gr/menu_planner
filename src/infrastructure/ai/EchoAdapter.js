@@ -6,6 +6,10 @@ import { AiPort } from '../../domain/ports/AiPort.js';
  * los comensales que vienen en el prompt, para poder probar todo el flujo.
  */
 export class EchoAdapter extends AiPort {
+  async listModels() {
+    return ['echo'];
+  }
+
   async chat(messages) {
     const system = messages.find((m) => m.role === 'system')?.content ?? '';
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';

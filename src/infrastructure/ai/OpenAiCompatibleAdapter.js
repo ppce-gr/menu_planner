@@ -32,4 +32,18 @@ export class OpenAiCompatibleAdapter extends AiPort {
     const data = await response.json();
     return data?.choices?.[0]?.message?.content ?? '';
   }
+
+  async listModels({ token, baseUrl } = {}) {
+    if (!token) throw new Error('falta el token del proveedor de IA');
+    const url = `${(baseUrl || this.baseUrl).replace(/\/$/, '')}/models`;
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 300);
+      throw new Error(`HTTP ${response.status} ${detail}`);
+    }
+    const data = await response.json();
+    return (data?.data ?? []).map((m) => m.id).filter(Boolean);
+  }
 }

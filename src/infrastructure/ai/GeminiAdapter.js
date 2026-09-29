@@ -1,5 +1,7 @@
 import { AiPort } from '../../domain/ports/AiPort.js';
 
+const BASE = 'https://generativelanguage.googleapis.com/v1beta';
+
 export class GeminiAdapter extends AiPort {
   async chat(messages, { model, temperature, token } = {}) {
     if (!token) throw new Error('falta el token del proveedor de IA');
@@ -15,9 +17,7 @@ export class GeminiAdapter extends AiPort {
         parts: [{ text: m.content }],
       }));
 
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}` +
-      `:generateContent?key=${encodeURIComponent(token)}`;
+    const url = `${BASE}/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(token)}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -33,5 +33,20 @@ export class GeminiAdapter extends AiPort {
     }
     const data = await response.json();
     return (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text).join('');
+  }
+
+  /** Lista los modelos que pueden generar contenido con este token. */
+  async listModels({ token } = {}) {
+    if (!token) throw new Error('falta el token del proveedor de IA');
+    const response = await fetch(`${BASE}/models?key=${encodeURIComponent(token)}&pageSize=200`);
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 300);
+      throw new Error(`HTTP ${response.status} ${detail}`);
+    }
+    const data = await response.json();
+    return (data?.models ?? [])
+      .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+      .map((m) => String(m.name ?? '').replace(/^models\//, ''))
+      .filter(Boolean);
   }
 }

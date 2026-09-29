@@ -12,6 +12,7 @@ import { PlanService } from '../../src/application/PlanService.js';
 import { ConfigService } from '../../src/application/ConfigService.js';
 import { AssistantService } from '../../src/application/AssistantService.js';
 import { AuthService } from '../../src/application/AuthService.js';
+import { AiDiagnosticsService } from '../../src/application/AiDiagnosticsService.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +20,7 @@ export function buildTestServer({ hogarId = 'test' } = {}) {
   const repositories = createMemoryRepositories();
   const secretBox = createSecretBox({ key: 'clave-de-prueba', keyFile: '/tmp/no-se-usa' });
   const configService = new ConfigService({ config: repositories.config, secretBox });
+  const aiFactory = createAiFactory();
 
   const services = {
     diners: new DinerService({ diners: repositories.diners }),
@@ -29,6 +31,7 @@ export function buildTestServer({ hogarId = 'test' } = {}) {
       diners: repositories.diners,
     }),
     config: configService,
+    diagnostics: new AiDiagnosticsService({ configService, aiFactory }),
     auth: new AuthService({
       users: repositories.users,
       sessions: repositories.sessions,
@@ -39,7 +42,7 @@ export function buildTestServer({ hogarId = 'test' } = {}) {
       diners: repositories.diners,
       recipes: repositories.recipes,
       configService,
-      aiFactory: createAiFactory(),
+      aiFactory,
     }),
   };
 

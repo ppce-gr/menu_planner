@@ -13,6 +13,7 @@ import { ConfigService } from './application/ConfigService.js';
 import { AssistantService } from './application/AssistantService.js';
 import { PlanService } from './application/PlanService.js';
 import { AuthService } from './application/AuthService.js';
+import { AiDiagnosticsService } from './application/AiDiagnosticsService.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +41,7 @@ const secretBox = createSecretBox({
 });
 
 const configService = new ConfigService({ config: repositories.config, secretBox });
+const aiFactory = createAiFactory();
 
 const services = {
   diners: new DinerService({ diners: repositories.diners }),
@@ -50,6 +52,7 @@ const services = {
     diners: repositories.diners,
   }),
   config: configService,
+  diagnostics: new AiDiagnosticsService({ configService, aiFactory }),
   auth: new AuthService({
     users: repositories.users,
     sessions: repositories.sessions,
@@ -60,7 +63,7 @@ const services = {
     diners: repositories.diners,
     recipes: repositories.recipes,
     configService,
-    aiFactory: createAiFactory(),
+    aiFactory,
   }),
 };
 

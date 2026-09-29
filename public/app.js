@@ -9,6 +9,7 @@ const state = {
   conversacionId: null,
   messages: [],
   lastPlan: null,
+  diagnostico: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -308,8 +309,31 @@ function renderAjustes() {
       </div>
       <div class="row">
         <button class="primary" id="btn-guardar-config">Guardar</button>
+        <button id="btn-probar-modelos">Probar modelos</button>
         <span class="muted">El token se guarda cifrado y no se devuelve.</span>
       </div>
+    </div>
+    ${diagnosticoHtml()}`;
+}
+
+function diagnosticoHtml() {
+  const diag = state.diagnostico;
+  if (!diag) return '';
+  const filas = (diag.results ?? [])
+    .map(
+      (r) =>
+        `<li>${r.ok ? '✅' : '❌'} ${esc(r.model)}${r.error ? ' — ' + esc(r.error) : ''}</li>`,
+    )
+    .join('');
+  return `
+    <div class="card">
+      <h3>Prueba de modelos</h3>
+      <p>${
+        diag.modelo
+          ? `Modelo elegido: <strong>${esc(diag.modelo)}</strong>`
+          : 'Ningún modelo ha respondido.'
+      }</p>
+      ${filas ? `<ul>${filas}</ul>` : ''}
     </div>`;
 }
 
@@ -408,6 +432,18 @@ async function guardarConfig() {
   render();
 }
 
+async function probarModelos() {
+  toast('Probando modelos, puede tardar…');
+  state.diagnostico = await api('/config/ai/test', { method: 'POST', body: {} });
+  if (state.diagnostico.modelo) {
+    state.config = await api('/config/ai');
+    toast(`Modelo que responde: ${state.diagnostico.modelo}`);
+  } else {
+    toast('Ningún modelo ha respondido', true);
+  }
+  render();
+}
+
 async function addDiner() {
   const nombre = $('#diner-nombre').value.trim();
   if (!nombre) throw new Error('El comensal necesita un nombre');
@@ -434,6 +470,7 @@ document.addEventListener('click', async (event) => {
     else if (button.id === 'btn-chat-send') await enviarChat();
     else if (button.id === 'btn-aplicar') await aplicarPlan();
     else if (button.id === 'btn-guardar-config') await guardarConfig();
+    else if (button.id === 'btn-probar-modelos') await probarModelos();
     else if (button.id === 'btn-add-diner') await addDiner();
     else if (button.dataset.shop) await setCompra(button.dataset.shop, button.dataset.estado);
   } catch (error) {

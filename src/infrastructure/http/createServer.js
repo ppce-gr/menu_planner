@@ -102,6 +102,8 @@ function buildRoutes(services, hogarId) {
 
     route('GET', '/api/config/ai', () => services.config.getAiConfig(hogarId)),
     route('PUT', '/api/config/ai', ({ body }) => services.config.saveAiConfig(hogarId, body)),
+    route('GET', '/api/models', () => services.diagnostics.listModels(hogarId)),
+    route('POST', '/api/config/ai/test', () => services.diagnostics.findWorkingModel(hogarId)),
 
     route('POST', '/api/chat/messages', ({ body }) =>
       services.assistant.chat({ hogarId, conversacionId: body.conversacionId, text: body.text }),

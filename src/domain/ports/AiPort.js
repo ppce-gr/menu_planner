@@ -10,10 +10,19 @@
 export class AiPort {
   /**
    * @param {{role:string, content:string}[]} _messages
-   * @param {{model?:string, temperature?:number, json?:boolean}} [_options]
+   * @param {{model?:string, temperature?:number, token?:string, baseUrl?:string}} [_options]
    * @returns {Promise<string>} texto de la respuesta
    */
   async chat(_messages, _options) {
     throw new Error('AiPort.chat no implementado');
+  }
+
+  /**
+   * Modelos disponibles para el token configurado.
+   * @param {{token?:string, baseUrl?:string}} [_options]
+   * @returns {Promise<string[]>}
+   */
+  async listModels(_options) {
+    return [];
   }
 }

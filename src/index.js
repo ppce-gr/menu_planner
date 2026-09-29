@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createMemoryRepositories } from './infrastructure/persistence/MemoryRepositories.js';
 import { createSecretBox } from './infrastructure/crypto/SecretBox.js';
+import { createPasswordHasher } from './infrastructure/crypto/PasswordHasher.js';
 import { createAiFactory } from './infrastructure/ai/AiAdapterFactory.js';
 import { createServer } from './infrastructure/http/createServer.js';
 
@@ -11,6 +12,7 @@ import { RecipeService } from './application/RecipeService.js';
 import { ConfigService } from './application/ConfigService.js';
 import { AssistantService } from './application/AssistantService.js';
 import { PlanService } from './application/PlanService.js';
+import { AuthService } from './application/AuthService.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +50,11 @@ const services = {
     diners: repositories.diners,
   }),
   config: configService,
+  auth: new AuthService({
+    users: repositories.users,
+    sessions: repositories.sessions,
+    hasher: createPasswordHasher(),
+  }),
   assistant: new AssistantService({
     conversations: repositories.conversations,
     diners: repositories.diners,

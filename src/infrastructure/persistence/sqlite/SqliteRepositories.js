@@ -40,6 +40,16 @@ export function createSqliteRepositories({ file }) {
       creado_en TEXT NOT NULL, data TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS messages_conv ON messages(conversation_id, creado_en);
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY, nombre TEXT NOT NULL UNIQUE, data TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY, usuario_id TEXT NOT NULL,
+      expira_en TEXT NOT NULL, data TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS sessions_usuario ON sessions(usuario_id);
   `);
 
   const stmt = {
@@ -83,6 +93,21 @@ export function createSqliteRepositories({ file }) {
       `INSERT INTO messages (id, conversation_id, creado_en, data) VALUES (?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
     ),
+
+    usersCount: db.prepare('SELECT COUNT(*) AS total FROM users'),
+    usersGet: db.prepare('SELECT data FROM users WHERE id = ?'),
+    usersFindByName: db.prepare('SELECT data FROM users WHERE lower(nombre) = lower(?)'),
+    usersSave: db.prepare(
+      `INSERT INTO users (id, nombre, data) VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET nombre = excluded.nombre, data = excluded.data`,
+    ),
+
+    sessionsSave: db.prepare(
+      `INSERT INTO sessions (token, usuario_id, expira_en, data) VALUES (?, ?, ?, ?)
+       ON CONFLICT(token) DO UPDATE SET expira_en = excluded.expira_en, data = excluded.data`,
+    ),
+    sessionsGet: db.prepare('SELECT data FROM sessions WHERE token = ?'),
+    sessionsRemove: db.prepare('DELETE FROM sessions WHERE token = ?'),
   };
 
   const one = (row) => (row ? JSON.parse(row.data) : null);
@@ -158,6 +183,39 @@ export function createSqliteRepositories({ file }) {
           JSON.stringify(message),
         );
         return message;
+      },
+    },
+    users: {
+      async count() {
+        return stmt.usersCount.get().total;
+      },
+      async get(id) {
+        return one(stmt.usersGet.get(id));
+      },
+      async findByName(nombre) {
+        return one(stmt.usersFindByName.get(String(nombre ?? '').trim()));
+      },
+      async save(usuario) {
+        stmt.usersSave.run(usuario.id, usuario.nombre, JSON.stringify(usuario));
+        return usuario;
+      },
+    },
+    sessions: {
+      async save(session) {
+        stmt.sessionsSave.run(
+          session.token,
+          session.usuarioId,
+          session.expiraEn,
+          JSON.stringify(session),
+        );
+        return session;
+      },
+      async get(token) {
+        return one(stmt.sessionsGet.get(token));
+      },
+      async remove(token) {
+        stmt.sessionsRemove.run(token);
+        return true;
       },
     },
     close() {

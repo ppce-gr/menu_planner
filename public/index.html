@@ -11,15 +11,17 @@
   <body>
     <header class="topbar">
       <div class="brand">🍽️ menu_planner</div>
-      <nav class="tabs">
+      <nav class="tabs hidden" id="nav-tabs">
         <button class="tab active" data-tab="semana">Semana</button>
         <button class="tab" data-tab="compra">Compra</button>
         <button class="tab" data-tab="chat">Chat</button>
         <button class="tab" data-tab="ajustes">Ajustes</button>
       </nav>
+      <button class="tab hidden" id="btn-logout">Salir</button>
     </header>
 
     <main>
+      <section id="view-auth" class="view hidden"></section>
       <section id="view-semana" class="view"></section>
       <section id="view-compra" class="view hidden"></section>
       <section id="view-chat" class="view hidden"></section>

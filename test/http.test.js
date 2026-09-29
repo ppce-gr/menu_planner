@@ -10,17 +10,25 @@ const base = `http://127.0.0.1:${port}`;
 
 after(() => server.close());
 
-async function json(path, { method = 'GET', body } = {}) {
+let cookie = '';
+
+async function json(path, { method = 'GET', body, useCookie = true } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (useCookie && cookie) headers.cookie = cookie;
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  const setCookie = response.headers.getSetCookie();
+  if (setCookie.length > 0) {
+    cookie = setCookie.map((value) => value.split(';')[0]).join('; ');
+  }
   const data = await response.json().catch(() => ({}));
   return { status: response.status, data };
 }
 
-test('GET /api/health responde', async () => {
+test('GET /api/health responde sin sesión', async () => {
   const { status, data } = await json('/api/health');
   assert.equal(status, 200);
   assert.equal(data.ok, true);
@@ -29,8 +37,44 @@ test('GET /api/health responde', async () => {
 test('la raíz sirve la interfaz', async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /menu_planner/);
+  assert.match(await response.text(), /menu_planner/);
+});
+
+test('sin sesión, al principio pide crear usuario', async () => {
+  const { status, data } = await json('/api/auth/me');
+  assert.equal(status, 401);
+  assert.equal(data.necesitaSetup, true);
+});
+
+test('las rutas de datos están protegidas', async () => {
+  const { status, data } = await json('/api/diners');
+  assert.equal(status, 401);
+  assert.equal(data.error, 'NO_AUTENTICADO');
+});
+
+test('el setup crea el usuario y abre sesión', async () => {
+  const { status, data } = await json('/api/auth/setup', {
+    method: 'POST',
+    body: { nombre: 'Ana', password: 'secreta1' },
+  });
+  assert.equal(status, 200);
+  assert.equal(data.usuario.nombre, 'Ana');
+
+  const me = await json('/api/auth/me');
+  assert.equal(me.status, 200);
+  assert.equal(me.data.usuario.nombre, 'Ana');
+  assert.equal(me.data.necesitaSetup, false);
+});
+
+test('con contraseña mala no se entra', async () => {
+  const previous = cookie;
+  cookie = '';
+  const bad = await json('/api/auth/login', {
+    method: 'POST',
+    body: { nombre: 'Ana', password: 'mala' },
+  });
+  assert.equal(bad.status, 400);
+  cookie = previous;
 });
 
 test('el chat corta lo externo', async () => {
@@ -96,4 +140,11 @@ test('flujo por HTTP: comensal, plan, aplicar, verificar, cerrar y compra', asyn
   });
   assert.equal(comprado.status, 200);
   assert.equal(comprado.data.listaCompra[0].estado, 'comprado');
+});
+
+test('al salir, las rutas vuelven a estar protegidas', async () => {
+  const { status } = await json('/api/auth/logout', { method: 'POST' });
+  assert.equal(status, 200);
+  const after = await json('/api/diners');
+  assert.equal(after.status, 401);
 });

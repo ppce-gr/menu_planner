@@ -14,6 +14,17 @@ const MIME = {
   '.webmanifest': 'application/manifest+json',
 };
 
+const COOKIE = 'mp_session';
+const PUBLIC_API = new Set([
+  '/api/health',
+  '/api/auth/me',
+  '/api/auth/setup',
+  '/api/auth/login',
+  '/api/auth/logout',
+]);
+
+const reply = (body, { status = 200, headers = {} } = {}) => ({ __reply: true, status, body, headers });
+
 function route(method, path, handler) {
   const names = [];
   const pattern = new RegExp(
@@ -30,6 +41,37 @@ function route(method, path, handler) {
 function buildRoutes(services, hogarId) {
   return [
     route('GET', '/api/health', () => ({ ok: true, app: 'menu_planner' })),
+
+    route('GET', '/api/auth/me', async ({ req }) => {
+      const usuario = await currentUser(services.auth, req);
+      if (usuario) return reply({ usuario, necesitaSetup: false });
+      return reply(
+        {
+          error: 'NO_AUTENTICADO',
+          message: 'Inicia sesión',
+          necesitaSetup: await services.auth.needsSetup(),
+        },
+        { status: 401 },
+      );
+    }),
+    route('POST', '/api/auth/setup', async ({ body }) => {
+      const { token, usuario } = await services.auth.setup({
+        nombre: body?.nombre,
+        password: body?.password,
+      });
+      return reply({ usuario }, { headers: { 'set-cookie': sessionCookie(token) } });
+    }),
+    route('POST', '/api/auth/login', async ({ body }) => {
+      const { token, usuario } = await services.auth.login({
+        nombre: body?.nombre,
+        password: body?.password,
+      });
+      return reply({ usuario }, { headers: { 'set-cookie': sessionCookie(token) } });
+    }),
+    route('POST', '/api/auth/logout', async ({ req }) => {
+      await services.auth.logout(readSessionToken(req));
+      return reply({ ok: true }, { headers: { 'set-cookie': clearCookie() } });
+    }),
 
     route('GET', '/api/diners', () => services.diners.list(hogarId)),
     route('POST', '/api/diners', ({ body }) => services.diners.create(hogarId, body)),
@@ -76,6 +118,13 @@ export function createServer({ services, hogarId, publicDir }) {
       const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
       if (url.pathname.startsWith('/api/')) {
         const body = await readJsonBody(req);
+        if (!PUBLIC_API.has(url.pathname)) {
+          const usuario = await currentUser(services.auth, req);
+          if (!usuario) {
+            sendJson(res, 401, { error: 'NO_AUTENTICADO', message: 'Inicia sesión' });
+            return;
+          }
+        }
         const match = matchRoute(routes, req.method, url.pathname);
         if (!match) {
           sendJson(res, 404, { error: 'NO_ENCONTRADO', message: 'Ruta no encontrada' });
@@ -85,7 +134,11 @@ export function createServer({ services, hogarId, publicDir }) {
           match.names.map((name, index) => [name, decodeURIComponent(match.values[index])]),
         );
         const result = await match.handler({ params, body, query: url.searchParams, req });
-        sendJson(res, result?.status ?? 200, result?.body ?? result ?? {});
+        if (result && result.__reply) {
+          sendJson(res, result.status, result.body, result.headers);
+        } else {
+          sendJson(res, 200, result ?? {});
+        }
         return;
       }
       await serveStatic(res, publicDir, url.pathname);
@@ -97,6 +150,36 @@ export function createServer({ services, hogarId, publicDir }) {
       sendJson(res, 500, { error: 'ERROR_INTERNO', message: error.message });
     }
   });
+}
+
+async function currentUser(auth, req) {
+  if (!auth) return null;
+  return auth.userForToken(readSessionToken(req));
+}
+
+function readSessionToken(req) {
+  return parseCookies(req)[COOKIE] ?? '';
+}
+
+function parseCookies(req) {
+  const header = req.headers.cookie ?? '';
+  const result = {};
+  for (const part of header.split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const index = trimmed.indexOf('=');
+    if (index === -1) continue;
+    result[trimmed.slice(0, index)] = decodeURIComponent(trimmed.slice(index + 1));
+  }
+  return result;
+}
+
+function sessionCookie(token) {
+  return `${COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+function clearCookie() {
+  return `${COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
 function matchRoute(routes, method, pathname) {
@@ -120,11 +203,12 @@ async function readJsonBody(req) {
   }
 }
 
-function sendJson(res, status, payload) {
+function sendJson(res, status, payload, headers = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
+    ...headers,
   });
   res.end(body);
 }

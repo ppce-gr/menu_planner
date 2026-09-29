@@ -1,5 +1,7 @@
 const state = {
   tab: 'semana',
+  usuario: null,
+  necesitaSetup: false,
   diners: [],
   plans: [],
   plan: null,
@@ -19,14 +21,24 @@ const esc = (value) =>
     "'": '&#39;',
   })[c]);
 
-async function api(path, { method = 'GET', body } = {}) {
+async function rawJson(path, { method = 'GET', body } = {}) {
   const response = await fetch(`/api${path}`, {
     method,
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || `Error ${response.status}`);
+  return { status: response.status, data };
+}
+
+async function api(path, { method = 'GET', body } = {}) {
+  const { status, data } = await rawJson(path, { method, body });
+  if (status === 401) {
+    state.usuario = null;
+    showAuth({ necesitaSetup: false });
+    throw new Error('La sesión ha caducado; vuelve a entrar');
+  }
+  if (status >= 400) throw new Error(data.message || `Error ${status}`);
   return data;
 }
 
@@ -39,9 +51,83 @@ function toast(message, isError = false) {
   toastTimer = setTimeout(() => element.classList.add('hidden'), 3500);
 }
 
+/* ---------- Autenticación ---------- */
+
+function showAuth({ necesitaSetup = false } = {}) {
+  state.necesitaSetup = necesitaSetup;
+  $('#nav-tabs').classList.add('hidden');
+  $('#btn-logout').classList.add('hidden');
+  for (const name of ['semana', 'compra', 'chat', 'ajustes']) {
+    $(`#view-${name}`).classList.add('hidden');
+  }
+  $('#view-auth').classList.remove('hidden');
+  renderAuth();
+}
+
+function renderAuth() {
+  const setup = state.necesitaSetup;
+  $('#view-auth').innerHTML = `
+    <div class="card" style="max-width:420px;margin:40px auto">
+      <h2>${setup ? 'Crea tu usuario' : 'Entra'}</h2>
+      <p class="muted">${
+        setup
+          ? 'Primera vez: elige un usuario y una contraseña de al menos 6 caracteres.'
+          : 'Introduce tus credenciales para ver tus menús.'
+      }</p>
+      <label class="field">Usuario<input id="auth-nombre" autocomplete="username" /></label>
+      <label class="field">Contraseña<input id="auth-password" type="password" autocomplete="${
+        setup ? 'new-password' : 'current-password'
+      }" /></label>
+      ${
+        setup
+          ? '<label class="field">Repite la contraseña<input id="auth-password2" type="password" autocomplete="new-password" /></label>'
+          : ''
+      }
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="btn-auth">${setup ? 'Crear y entrar' : 'Entrar'}</button>
+      </div>
+    </div>`;
+}
+
+async function submitAuth() {
+  const nombre = $('#auth-nombre').value.trim();
+  const password = $('#auth-password').value;
+  if (!nombre || !password) throw new Error('Rellena usuario y contraseña');
+
+  if (state.necesitaSetup) {
+    if (password !== $('#auth-password2').value) throw new Error('Las contraseñas no coinciden');
+    const { status, data } = await rawJson('/auth/setup', {
+      method: 'POST',
+      body: { nombre, password },
+    });
+    if (status !== 200) throw new Error(data.message || 'No se pudo crear el usuario');
+  } else {
+    const { status, data } = await rawJson('/auth/login', {
+      method: 'POST',
+      body: { nombre, password },
+    });
+    if (status !== 200) throw new Error(data.message || 'Usuario o contraseña incorrectos');
+  }
+  await enterApp();
+}
+
+async function logout() {
+  await rawJson('/auth/logout', { method: 'POST' });
+  state.usuario = null;
+  state.plan = null;
+  state.plans = [];
+  state.diners = [];
+  state.messages = [];
+  state.conversacionId = null;
+  showAuth({ necesitaSetup: false });
+}
+
+/* ---------- Vistas ---------- */
+
 function showTab(tab) {
+  if (!state.usuario) return;
   state.tab = tab;
-  document.querySelectorAll('.tab').forEach((button) => {
+  document.querySelectorAll('.tab[data-tab]').forEach((button) => {
     button.classList.toggle('active', button.dataset.tab === tab);
   });
   for (const name of ['semana', 'compra', 'chat', 'ajustes']) {
@@ -227,6 +313,16 @@ function renderAjustes() {
     </div>`;
 }
 
+/* ---------- Acciones ---------- */
+
+async function loadAll() {
+  const [diners, plans, config] = await Promise.all([api('/diners'), api('/plans'), api('/config/ai')]);
+  state.diners = diners;
+  state.plans = plans;
+  state.config = config;
+  state.plan = plans.length ? plans[plans.length - 1] : null;
+}
+
 async function loadPlans() {
   state.plans = await api('/plans');
 }
@@ -320,8 +416,10 @@ async function addDiner() {
   render();
 }
 
+/* ---------- Eventos ---------- */
+
 document.addEventListener('click', async (event) => {
-  const tab = event.target.closest('.tab');
+  const tab = event.target.closest('.tab[data-tab]');
   if (tab) {
     showTab(tab.dataset.tab);
     return;
@@ -329,7 +427,9 @@ document.addEventListener('click', async (event) => {
   const button = event.target.closest('button');
   if (!button) return;
   try {
-    if (button.id === 'btn-nuevo-plan') await crearPlan();
+    if (button.id === 'btn-auth') await submitAuth();
+    else if (button.id === 'btn-logout') await logout();
+    else if (button.id === 'btn-nuevo-plan') await crearPlan();
     else if (button.id === 'btn-cerrar') await cerrarPlan();
     else if (button.id === 'btn-chat-send') await enviarChat();
     else if (button.id === 'btn-aplicar') await aplicarPlan();
@@ -366,27 +466,45 @@ document.addEventListener('change', async (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter' && event.target.id === 'chat-input') {
+  if (event.key !== 'Enter') return;
+  if (event.target.id === 'chat-input') {
     event.preventDefault();
     enviarChat().catch((error) => toast(error.message, true));
   }
+  if (['auth-nombre', 'auth-password', 'auth-password2'].includes(event.target.id)) {
+    event.preventDefault();
+    submitAuth().catch((error) => toast(error.message, true));
+  }
 });
+
+/* ---------- Arranque ---------- */
+
+async function enterApp() {
+  const me = await rawJson('/auth/me');
+  state.usuario = me.data?.usuario ?? null;
+  await loadAll();
+  $('#nav-tabs').classList.remove('hidden');
+  $('#btn-logout').classList.remove('hidden');
+  $('#view-auth').classList.add('hidden');
+  showTab('semana');
+}
 
 async function init() {
   try {
-    const [diners, plans, config] = await Promise.all([
-      api('/diners'),
-      api('/plans'),
-      api('/config/ai'),
-    ]);
-    state.diners = diners;
-    state.plans = plans;
-    state.config = config;
-    state.plan = plans.length ? plans[plans.length - 1] : null;
+    const me = await rawJson('/auth/me');
+    if (me.status === 200) {
+      state.usuario = me.data.usuario;
+      await loadAll();
+      $('#nav-tabs').classList.remove('hidden');
+      $('#btn-logout').classList.remove('hidden');
+      $('#view-auth').classList.add('hidden');
+      showTab('semana');
+      return;
+    }
+    showAuth({ necesitaSetup: Boolean(me.data?.necesitaSetup) });
   } catch (error) {
     toast(error.message, true);
   }
-  showTab('semana');
 }
 
 init();

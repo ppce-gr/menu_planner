@@ -9,6 +9,8 @@ export function createMemoryRepositories() {
   const configs = new Map();
   const conversations = new Map();
   const messages = new Map();
+  const users = new Map();
+  const sessions = new Map();
 
   return {
     diners: {
@@ -75,6 +77,34 @@ export function createMemoryRepositories() {
       async saveMessage(message) {
         messages.set(message.id, message);
         return message;
+      },
+    },
+    users: {
+      async count() {
+        return users.size;
+      },
+      async get(id) {
+        return users.get(id) ?? null;
+      },
+      async findByName(nombre) {
+        const target = String(nombre ?? '').trim().toLowerCase();
+        return [...users.values()].find((u) => u.nombre.toLowerCase() === target) ?? null;
+      },
+      async save(usuario) {
+        users.set(usuario.id, usuario);
+        return usuario;
+      },
+    },
+    sessions: {
+      async save(session) {
+        sessions.set(session.token, session);
+        return session;
+      },
+      async get(token) {
+        return sessions.get(token) ?? null;
+      },
+      async remove(token) {
+        return sessions.delete(token);
       },
     },
   };

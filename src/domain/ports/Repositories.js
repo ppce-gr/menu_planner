@@ -36,3 +36,16 @@ export class ConversationRepository {
   async saveMessage(_message) { throw new Error('ConversationRepository.saveMessage no implementado'); }
   async ensureConversation(_conversacion) { throw new Error('ConversationRepository.ensureConversation no implementado'); }
 }
+
+export class UserRepository {
+  async count() { throw new Error('UserRepository.count no implementado'); }
+  async get(_id) { throw new Error('UserRepository.get no implementado'); }
+  async findByName(_nombre) { throw new Error('UserRepository.findByName no implementado'); }
+  async save(_usuario) { throw new Error('UserRepository.save no implementado'); }
+}
+
+export class SessionRepository {
+  async save(_session) { throw new Error('SessionRepository.save no implementado'); }
+  async get(_token) { throw new Error('SessionRepository.get no implementado'); }
+  async remove(_token) { throw new Error('SessionRepository.remove no implementado'); }
+}

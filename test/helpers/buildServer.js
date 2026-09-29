@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createMemoryRepositories } from '../../src/infrastructure/persistence/MemoryRepositories.js';
 import { createSecretBox } from '../../src/infrastructure/crypto/SecretBox.js';
+import { createPasswordHasher } from '../../src/infrastructure/crypto/PasswordHasher.js';
 import { createAiFactory } from '../../src/infrastructure/ai/AiAdapterFactory.js';
 import { createServer } from '../../src/infrastructure/http/createServer.js';
 import { DinerService } from '../../src/application/DinerService.js';
@@ -10,6 +11,7 @@ import { RecipeService } from '../../src/application/RecipeService.js';
 import { PlanService } from '../../src/application/PlanService.js';
 import { ConfigService } from '../../src/application/ConfigService.js';
 import { AssistantService } from '../../src/application/AssistantService.js';
+import { AuthService } from '../../src/application/AuthService.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -27,6 +29,11 @@ export function buildTestServer({ hogarId = 'test' } = {}) {
       diners: repositories.diners,
     }),
     config: configService,
+    auth: new AuthService({
+      users: repositories.users,
+      sessions: repositories.sessions,
+      hasher: createPasswordHasher(),
+    }),
     assistant: new AssistantService({
       conversations: repositories.conversations,
       diners: repositories.diners,

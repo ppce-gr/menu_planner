@@ -1,0 +1,22 @@
+{
+  "name": "menu-planner",
+  "version": "0.1.0",
+  "description": "Planificador familiar de menus, recetas y lista de la compra con IA. Arquitectura hexagonal y cero dependencias de runtime.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\""
+  },
+  "keywords": [
+    "menu",
+    "recetas",
+    "planificacion",
+    "lista-de-la-compra",
+    "hexagonal",
+    "ia",
+    "raspberry-pi"
+  ],
+  "license": "MIT"
+}

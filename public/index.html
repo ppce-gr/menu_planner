@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>menu_planner</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">🍽️ menu_planner</div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="semana">Semana</button>
+        <button class="tab" data-tab="compra">Compra</button>
+        <button class="tab" data-tab="chat">Chat</button>
+        <button class="tab" data-tab="ajustes">Ajustes</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="view-semana" class="view"></section>
+      <section id="view-compra" class="view hidden"></section>
+      <section id="view-chat" class="view hidden"></section>
+      <section id="view-ajustes" class="view hidden"></section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

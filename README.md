@@ -12,7 +12,7 @@ asistente de IA que conversa contigo para planificar la semana.
 ## Arranque
 
 ```bash
-npm start          # servidor en http://localhost:3080
+npm start          # servidor en http://localhost:3090
 npm test           # pruebas con node:test
 ```
 
@@ -20,7 +20,8 @@ Variables de entorno:
 
 | Variable | Por defecto | Para qué |
 |---|---|---|
-| `PORT` | `3080` | Puerto HTTP |
+| `PORT` | `3090` | Puerto HTTP |
+| `HOST` | `0.0.0.0` | Interfaz de escucha (todas, para entrar desde la red) |
 | `DATA_DIR` | `./data` | Carpeta de la base de datos SQLite |
 | `SECRET_KEY` | (generada en `data/.secret`) | Cifrado del token de IA |
 | `AI_ADAPTER` | `echo` | `echo` para probar sin red, `openai` para IA real |

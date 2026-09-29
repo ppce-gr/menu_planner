@@ -14,7 +14,7 @@ git clone git@github-recetas:ppce-gr/menu_planner.git /home/jarvis/menu_planner
 sudo cp deploy/menu-planner.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now menu-planner
-curl -s localhost:3080/api/health
+curl -s localhost:3090/api/health
 ```
 
 ## 3. Publicarlo gratis
@@ -31,7 +31,7 @@ tailscale ip -4        # desde tus dispositivos, entra por esa IP
 ### URL pública gratis con Tailscale Funnel
 
 ```bash
-tailscale funnel 3080
+tailscale funnel 3090
 # te da una URL https://<maquina>.<tailnet>.ts.net
 ```
 

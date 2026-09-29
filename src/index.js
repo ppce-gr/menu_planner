@@ -14,7 +14,8 @@ import { PlanService } from './application/PlanService.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-const PORT = Number(process.env.PORT ?? 3080);
+const PORT = Number(process.env.PORT ?? 3090);
+const HOST = process.env.HOST ?? '0.0.0.0';
 const DATA_DIR = process.env.DATA_DIR ?? join(here, '..', 'data');
 const HOGAR_ID = process.env.HOGAR_ID ?? 'hogar-principal';
 const USE_MEMORY = process.env.PERSISTENCE === 'memory';
@@ -62,8 +63,8 @@ const server = createServer({
   publicDir: join(here, '..', 'public'),
 });
 
-server.listen(PORT, () => {
-  console.log(`menu_planner escuchando en http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`menu_planner escuchando en http://${HOST}:${PORT}`);
   console.log(`persistencia: ${USE_MEMORY ? 'memoria' : join(DATA_DIR, 'menu-planner.db')}`);
 });
 

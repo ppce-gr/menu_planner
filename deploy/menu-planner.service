@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=simple
 User=jarvis
 WorkingDirectory=/home/jarvis/menu_planner
-Environment=PORT=3080
+Environment=PORT=3090
+Environment=HOST=0.0.0.0
 Environment=DATA_DIR=/home/jarvis/menu_planner/data
 ExecStart=/usr/bin/node src/index.js
 Restart=on-failure

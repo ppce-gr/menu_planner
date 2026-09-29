@@ -117,6 +117,9 @@ function buildRoutes(services) {
     route('GET', '/api/models', ({ hogarId }) => services.diagnostics.listModels(hogarId)),
     route('POST', '/api/config/ai/test', ({ hogarId }) => services.diagnostics.findWorkingModel(hogarId)),
 
+    route('GET', '/api/home', ({ hogarId }) => services.hogar.get(hogarId)),
+    route('PUT', '/api/home/rules', ({ hogarId, body }) => services.hogar.updateRules(hogarId, body)),
+
     route('POST', '/api/chat/messages', ({ hogarId, body }) =>
       services.assistant.chat({ hogarId, conversacionId: body.conversacionId, text: body.text }),
     ),

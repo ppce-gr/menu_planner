@@ -50,9 +50,12 @@ export function buildMessages({
   context = {},
   diners = [],
   recipes = [],
+  rules = {},
   history = [],
   userText,
 } = {}) {
+  const prohibidos = rules?.ingredientesProhibidos ?? [];
+  const normas = rules?.normas ?? [];
   const household = [
     `Comensales: ${JSON.stringify(
       diners.map((d) => ({
@@ -67,13 +70,27 @@ export function buildMessages({
     `Recetas conocidas: ${JSON.stringify(recipes.map((r) => r.nombre))}`,
   ].join('\n');
 
+  const reglasBloque =
+    normas.length > 0 || prohibidos.length > 0
+      ? '\n\n--- Normas del hogar (OBLIGATORIAS, no las incumplas) ---\n' +
+        [
+          ...normas.map((n) => `- ${n}`),
+          prohibidos.length > 0 ? `- Ingredientes prohibidos: ${prohibidos.join(', ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : '';
+
   const previous = (history ?? []).map((m) => ({
     role: m.rol === 'usuario' ? 'user' : 'assistant',
     content: m.contenido,
   }));
 
   return [
-    { role: 'system', content: `${systemPrompt}\n\n--- Datos del hogar ---\n${household}` },
+    {
+      role: 'system',
+      content: `${systemPrompt}\n\n--- Datos del hogar ---\n${household}${reglasBloque}`,
+    },
     ...previous,
     { role: 'user', content: String(userText ?? '') },
   ];

@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js';
+import { forbiddenIngredientIn } from './HouseRules.js';
 
 /**
  * Reglas de la planificación: validación del plan que devuelve la IA y cálculo
@@ -22,7 +23,7 @@ export function scaleIngredients(recipe, raciones) {
 /**
  * Valida la forma del JSON que devuelve el asistente antes de volcar nada.
  */
-export function validateAiPlan(plan, { dinerIds = [] } = {}) {
+export function validateAiPlan(plan, { dinerIds = [], ingredientesProhibidos = [] } = {}) {
   if (!plan || typeof plan !== 'object') {
     throw new DomainError('PLAN_INVALIDO', 'El plan no es un objeto');
   }
@@ -51,6 +52,13 @@ export function validateAiPlan(plan, { dinerIds = [] } = {}) {
         }
       }
     }
+  }
+  const incumplimiento = forbiddenIngredientIn(plan, ingredientesProhibidos);
+  if (incumplimiento) {
+    throw new DomainError(
+      'REGLA_INCUMPLIDA',
+      `El plan usa «${incumplimiento.ingrediente}», prohibido por las normas del hogar`,
+    );
   }
   return plan;
 }

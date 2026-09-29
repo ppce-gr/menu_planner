@@ -14,19 +14,30 @@
       <nav class="tabs hidden" id="nav-tabs">
         <button class="tab active" data-tab="semana">Semana</button>
         <button class="tab" data-tab="compra">Compra</button>
-        <button class="tab" data-tab="chat">Chat</button>
         <button class="tab" data-tab="ajustes">Ajustes</button>
       </nav>
-      <button class="tab hidden" id="btn-logout">Salir</button>
+      <div class="topbar-actions">
+        <button class="tab hidden" id="btn-chat-toggle">💬 Asistente</button>
+        <button class="tab hidden" id="btn-logout">Salir</button>
+      </div>
     </header>
 
-    <main>
-      <section id="view-auth" class="view hidden"></section>
-      <section id="view-semana" class="view"></section>
-      <section id="view-compra" class="view hidden"></section>
-      <section id="view-chat" class="view hidden"></section>
-      <section id="view-ajustes" class="view hidden"></section>
-    </main>
+    <div class="layout">
+      <main id="content">
+        <section id="view-auth" class="view hidden"></section>
+        <section id="view-semana" class="view"></section>
+        <section id="view-compra" class="view hidden"></section>
+        <section id="view-ajustes" class="view hidden"></section>
+      </main>
+
+      <aside id="chat-panel" class="chat-panel hidden">
+        <div class="chat-head">
+          <strong>Asistente de menús</strong>
+          <button id="btn-chat-close" class="icon-btn" title="Cerrar">✕</button>
+        </div>
+        <div class="chat-body" id="chat-body"></div>
+      </aside>
+    </div>
 
     <div id="toast" class="toast hidden"></div>
     <script type="module" src="/app.js"></script>

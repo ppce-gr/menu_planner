@@ -8,6 +8,7 @@ const state = {
   plans: [],
   plan: null,
   config: null,
+  reglas: null,
   conversacionId: null,
   messages: [],
   lastPlan: null,
@@ -62,7 +63,8 @@ function showAuth({ necesitaSetup = false, registroAbierto = true, codigoRequeri
   if (necesitaSetup) state.authMode = 'register';
   $('#nav-tabs').classList.add('hidden');
   $('#btn-logout').classList.add('hidden');
-  for (const name of ['semana', 'compra', 'chat', 'ajustes']) {
+  $('#chat-panel').classList.add('hidden');
+  for (const name of ['semana', 'compra', 'ajustes']) {
     $(`#view-${name}`).classList.add('hidden');
   }
   $('#view-auth').classList.remove('hidden');
@@ -151,7 +153,7 @@ function showTab(tab) {
   document.querySelectorAll('.tab[data-tab]').forEach((button) => {
     button.classList.toggle('active', button.dataset.tab === tab);
   });
-  for (const name of ['semana', 'compra', 'chat', 'ajustes']) {
+  for (const name of ['semana', 'compra', 'ajustes']) {
     $(`#view-${name}`).classList.toggle('hidden', name !== tab);
   }
   render();
@@ -160,8 +162,8 @@ function showTab(tab) {
 function render() {
   if (state.tab === 'semana') renderSemana();
   else if (state.tab === 'compra') renderCompra();
-  else if (state.tab === 'chat') renderChat();
-  else renderAjustes();
+  else if (state.tab === 'ajustes') renderAjustes();
+  renderChat();
 }
 
 function renderSemana() {
@@ -276,6 +278,8 @@ function renderCompra() {
 }
 
 function renderChat() {
+  const body = $('#chat-body');
+  if (!body) return;
   const mensajes = state.messages
     .map(
       (m) =>
@@ -285,21 +289,23 @@ function renderChat() {
   const apply = state.lastPlan
     ? '<div class="row"><button class="primary" id="btn-aplicar">Aplicar plan a la semana</button></div>'
     : '';
-  $('#view-chat').innerHTML = `
-    <div class="card">
-      <div class="chat-log" id="chat-log">${mensajes || '<p class="muted">Pídele al asistente que planifique la semana.</p>'}</div>
-      <div class="row">
-        <input id="chat-input" placeholder="Escribe al asistente…" style="flex:1" />
-        <button class="primary" id="btn-chat-send">Enviar</button>
-      </div>
-      ${apply}
-    </div>`;
+  body.innerHTML = `
+    <div class="chat-log" id="chat-log">${
+      mensajes ||
+      '<p class="muted">Pídele al asistente que planifique la semana o pregúntale dudas de recetas.</p>'
+    }</div>
+    <div class="chat-input-row">
+      <textarea id="chat-input" rows="3" placeholder="Escribe al asistente… (Ctrl+Intro para enviar)"></textarea>
+      <button class="primary" id="btn-chat-send">Enviar</button>
+    </div>
+    ${apply}`;
   const log = $('#chat-log');
-  log.scrollTop = log.scrollHeight;
+  if (log) log.scrollTop = log.scrollHeight;
 }
 
 function renderAjustes() {
   const config = state.config ?? {};
+  const reglas = state.reglas ?? { normas: [], ingredientesProhibidos: [] };
   const diners = state.diners
     .map((d) => `<li>${esc(d.nombre)}${d.dieta ? ' · ' + esc(d.dieta) : ''}</li>`)
     .join('');
@@ -333,6 +339,19 @@ function renderAjustes() {
         <span class="muted">El token se guarda cifrado y no se devuelve.</span>
       </div>
     </div>
+    <div class="card">
+      <h3>Normas del hogar</h3>
+      <p class="muted">Se tienen en cuenta <strong>siempre</strong> al planificar; el asistente no puede saltárselas y el sistema rechaza un plan que las incumpla.</p>
+      <label class="field">Normas (una por línea)
+        <textarea id="reglas-normas" rows="4" placeholder="Cocinar preferentemente con Thermomix&#10;Nada de setas">${esc(reglas.normas.join('\n'))}</textarea>
+      </label>
+      <label class="field">Ingredientes prohibidos (separados por comas)
+        <input id="reglas-prohibidos" value="${esc(reglas.ingredientesProhibidos.join(', '))}" placeholder="setas, frutos secos" />
+      </label>
+      <div class="row">
+        <button class="primary" id="btn-guardar-reglas">Guardar normas</button>
+      </div>
+    </div>
     ${diagnosticoHtml()}`;
 }
 
@@ -360,10 +379,16 @@ function diagnosticoHtml() {
 /* ---------- Acciones ---------- */
 
 async function loadAll() {
-  const [diners, plans, config] = await Promise.all([api('/diners'), api('/plans'), api('/config/ai')]);
+  const [diners, plans, config, home] = await Promise.all([
+    api('/diners'),
+    api('/plans'),
+    api('/config/ai'),
+    api('/home'),
+  ]);
   state.diners = diners;
   state.plans = plans;
   state.config = config;
+  state.reglas = home.reglas ?? { normas: [], ingredientesProhibidos: [] };
   state.plan = plans.length ? plans[plans.length - 1] : null;
 }
 
@@ -464,6 +489,24 @@ async function probarModelos() {
   render();
 }
 
+async function guardarReglas() {
+  const normas = $('#reglas-normas')
+    .value.split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ingredientesProhibidos = $('#reglas-prohibidos')
+    .value.split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const home = await api('/home/rules', {
+    method: 'PUT',
+    body: { normas, ingredientesProhibidos },
+  });
+  state.reglas = home.reglas;
+  toast('Normas guardadas');
+  render();
+}
+
 async function addDiner() {
   const nombre = $('#diner-nombre').value.trim();
   if (!nombre) throw new Error('El comensal necesita un nombre');
@@ -495,6 +538,9 @@ document.addEventListener('click', async (event) => {
     else if (button.id === 'btn-aplicar') await aplicarPlan();
     else if (button.id === 'btn-guardar-config') await guardarConfig();
     else if (button.id === 'btn-probar-modelos') await probarModelos();
+    else if (button.id === 'btn-guardar-reglas') await guardarReglas();
+    else if (button.id === 'btn-chat-toggle') document.body.classList.add('chat-open');
+    else if (button.id === 'btn-chat-close') document.body.classList.remove('chat-open');
     else if (button.id === 'btn-add-diner') await addDiner();
     else if (button.dataset.shop) await setCompra(button.dataset.shop, button.dataset.estado);
   } catch (error) {
@@ -527,12 +573,18 @@ document.addEventListener('change', async (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter') return;
   if (event.target.id === 'chat-input') {
-    event.preventDefault();
-    enviarChat().catch((error) => toast(error.message, true));
+    // Intro = nueva línea; Ctrl+Intro (o Cmd+Intro) = enviar.
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      enviarChat().catch((error) => toast(error.message, true));
+    }
+    return;
   }
-  if (['auth-nombre', 'auth-password', 'auth-password2'].includes(event.target.id)) {
+  if (
+    event.key === 'Enter' &&
+    ['auth-nombre', 'auth-password', 'auth-password2'].includes(event.target.id)
+  ) {
     event.preventDefault();
     submitAuth().catch((error) => toast(error.message, true));
   }
@@ -547,6 +599,7 @@ async function enterApp() {
   $('#nav-tabs').classList.remove('hidden');
   $('#btn-logout').classList.remove('hidden');
   $('#view-auth').classList.add('hidden');
+  $('#chat-panel').classList.remove('hidden');
   showTab('semana');
 }
 
@@ -559,6 +612,7 @@ async function init() {
       $('#nav-tabs').classList.remove('hidden');
       $('#btn-logout').classList.remove('hidden');
       $('#view-auth').classList.add('hidden');
+  $('#chat-panel').classList.remove('hidden');
       showTab('semana');
       return;
     }

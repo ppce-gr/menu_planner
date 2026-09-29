@@ -14,6 +14,7 @@ import { AssistantService } from './application/AssistantService.js';
 import { PlanService } from './application/PlanService.js';
 import { AuthService } from './application/AuthService.js';
 import { AiDiagnosticsService } from './application/AiDiagnosticsService.js';
+import { HogarService } from './application/HogarService.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +45,7 @@ const secretBox = createSecretBox({
 
 const configService = new ConfigService({ config: repositories.config, secretBox });
 const aiFactory = createAiFactory();
+const hogarService = new HogarService({ hogares: repositories.hogares });
 
 const services = {
   diners: new DinerService({ diners: repositories.diners }),
@@ -52,8 +54,10 @@ const services = {
     plans: repositories.plans,
     recipes: repositories.recipes,
     diners: repositories.diners,
+    hogarService,
   }),
   config: configService,
+  hogar: hogarService,
   diagnostics: new AiDiagnosticsService({ configService, aiFactory }),
   auth: new AuthService({
     users: repositories.users,
@@ -70,6 +74,7 @@ const services = {
     recipes: repositories.recipes,
     configService,
     aiFactory,
+    hogarService,
   }),
 };
 

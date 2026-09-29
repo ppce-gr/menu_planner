@@ -6,10 +6,11 @@ import { consolidate, markAsAtHome } from '../domain/ShoppingList.js';
 const SHOPPING_STATES = ['pendiente', 'comprado', 'enCasa', 'descartado'];
 
 export class PlanService {
-  constructor({ plans, recipes, diners }) {
+  constructor({ plans, recipes, diners, hogarService }) {
     this.plans = plans;
     this.recipes = recipes;
     this.diners = diners;
+    this.hogarService = hogarService;
   }
 
   list(hogarId) {
@@ -43,7 +44,13 @@ export class PlanService {
   async applyAiPlan(planId, aiPlan) {
     const plan = await this.get(planId);
     const diners = await this.diners.list(plan.hogarId);
-    validateAiPlan(aiPlan, { dinerIds: diners.map((d) => d.id) });
+    const reglas = this.hogarService
+      ? await this.hogarService.getRules(plan.hogarId)
+      : { ingredientesProhibidos: [] };
+    validateAiPlan(aiPlan, {
+      dinerIds: diners.map((d) => d.id),
+      ingredientesProhibidos: reglas.ingredientesProhibidos ?? [],
+    });
 
     plan.fechaInicio = aiPlan.fechaInicio;
     plan.fechaFin = aiPlan.fechaFin;

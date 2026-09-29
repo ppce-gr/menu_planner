@@ -7,12 +7,13 @@ import { buildMessages, parsePlanFromReply } from './prompt.js';
  * corta lo externo) antes de molestar al modelo.
  */
 export class AssistantService {
-  constructor({ conversations, diners, recipes, configService, aiFactory }) {
+  constructor({ conversations, diners, recipes, configService, aiFactory, hogarService }) {
     this.conversations = conversations;
     this.diners = diners;
     this.recipes = recipes;
     this.configService = configService;
     this.aiFactory = aiFactory;
+    this.hogarService = hogarService;
   }
 
   async chat({ hogarId, conversacionId, text }) {
@@ -52,9 +53,11 @@ export class AssistantService {
     const diners = await this.diners.list(hogarId);
     const recipes = await this.recipes.list(hogarId);
     const history = await this.conversations.listMessages(convId);
+    const rules = this.hogarService ? await this.hogarService.getRules(hogarId) : {};
     const messages = buildMessages({
       diners,
       recipes,
+      rules,
       history: history.filter((m) => m.id !== userMessage.id && m.rol !== 'herramienta'),
       userText: contenido,
     });

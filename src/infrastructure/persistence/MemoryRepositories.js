@@ -11,6 +11,7 @@ export function createMemoryRepositories() {
   const messages = new Map();
   const users = new Map();
   const sessions = new Map();
+  const hogares = new Map();
 
   return {
     diners: {
@@ -105,6 +106,15 @@ export function createMemoryRepositories() {
       },
       async remove(token) {
         return sessions.delete(token);
+      },
+    },
+    hogares: {
+      async get(id) {
+        return hogares.get(id) ?? null;
+      },
+      async save(hogar) {
+        hogares.set(hogar.id, hogar);
+        return hogar;
       },
     },
   };

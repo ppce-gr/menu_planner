@@ -19,6 +19,7 @@ const PUBLIC_API = new Set([
   '/api/health',
   '/api/auth/me',
   '/api/auth/setup',
+  '/api/auth/register',
   '/api/auth/login',
   '/api/auth/logout',
 ]);
@@ -38,18 +39,19 @@ function route(method, path, handler) {
   return { method, pattern, names, handler };
 }
 
-function buildRoutes(services, hogarId) {
+function buildRoutes(services) {
   return [
     route('GET', '/api/health', () => ({ ok: true, app: 'menu_planner' })),
 
-    route('GET', '/api/auth/me', async ({ req }) => {
-      const usuario = await currentUser(services.auth, req);
+    route('GET', '/api/auth/me', async ({ usuario }) => {
       if (usuario) return reply({ usuario, necesitaSetup: false });
       return reply(
         {
           error: 'NO_AUTENTICADO',
           message: 'Inicia sesión',
           necesitaSetup: await services.auth.needsSetup(),
+          registroAbierto: services.auth.canRegister(),
+          codigoRequerido: services.auth.requiresCode(),
         },
         { status: 401 },
       );
@@ -58,6 +60,16 @@ function buildRoutes(services, hogarId) {
       const { token, usuario } = await services.auth.setup({
         nombre: body?.nombre,
         password: body?.password,
+        hogarNombre: body?.hogarNombre,
+      });
+      return reply({ usuario }, { headers: { 'set-cookie': sessionCookie(token) } });
+    }),
+    route('POST', '/api/auth/register', async ({ body }) => {
+      const { token, usuario } = await services.auth.signUp({
+        nombre: body?.nombre,
+        password: body?.password,
+        hogarNombre: body?.hogarNombre,
+        codigo: body?.codigo,
       });
       return reply({ usuario }, { headers: { 'set-cookie': sessionCookie(token) } });
     }),
@@ -73,19 +85,19 @@ function buildRoutes(services, hogarId) {
       return reply({ ok: true }, { headers: { 'set-cookie': clearCookie() } });
     }),
 
-    route('GET', '/api/diners', () => services.diners.list(hogarId)),
-    route('POST', '/api/diners', ({ body }) => services.diners.create(hogarId, body)),
+    route('GET', '/api/diners', ({ hogarId }) => services.diners.list(hogarId)),
+    route('POST', '/api/diners', ({ hogarId, body }) => services.diners.create(hogarId, body)),
     route('PATCH', '/api/diners/:id', ({ params, body }) => services.diners.update(params.id, body)),
     route('DELETE', '/api/diners/:id', ({ params }) => services.diners.remove(params.id)),
 
-    route('GET', '/api/recipes', () => services.recipes.list(hogarId)),
-    route('POST', '/api/recipes', ({ body }) => services.recipes.create(hogarId, body)),
+    route('GET', '/api/recipes', ({ hogarId }) => services.recipes.list(hogarId)),
+    route('POST', '/api/recipes', ({ hogarId, body }) => services.recipes.create(hogarId, body)),
     route('GET', '/api/recipes/:id', ({ params }) => services.recipes.get(params.id)),
     route('PATCH', '/api/recipes/:id', ({ params, body }) => services.recipes.update(params.id, body)),
     route('DELETE', '/api/recipes/:id', ({ params }) => services.recipes.remove(params.id)),
 
-    route('GET', '/api/plans', () => services.plans.list(hogarId)),
-    route('POST', '/api/plans', ({ body }) => services.plans.create({ hogarId, ...body })),
+    route('GET', '/api/plans', ({ hogarId }) => services.plans.list(hogarId)),
+    route('POST', '/api/plans', ({ hogarId, body }) => services.plans.create({ hogarId, ...body })),
     route('GET', '/api/plans/:id', ({ params }) => services.plans.get(params.id)),
     route('POST', '/api/plans/:id/apply', ({ params, body }) =>
       services.plans.applyAiPlan(params.id, body?.plan ?? body),
@@ -100,32 +112,30 @@ function buildRoutes(services, hogarId) {
       services.plans.setShoppingItemState(params.id, params.itemId, body.estado),
     ),
 
-    route('GET', '/api/config/ai', () => services.config.getAiConfig(hogarId)),
-    route('PUT', '/api/config/ai', ({ body }) => services.config.saveAiConfig(hogarId, body)),
-    route('GET', '/api/models', () => services.diagnostics.listModels(hogarId)),
-    route('POST', '/api/config/ai/test', () => services.diagnostics.findWorkingModel(hogarId)),
+    route('GET', '/api/config/ai', ({ hogarId }) => services.config.getAiConfig(hogarId)),
+    route('PUT', '/api/config/ai', ({ hogarId, body }) => services.config.saveAiConfig(hogarId, body)),
+    route('GET', '/api/models', ({ hogarId }) => services.diagnostics.listModels(hogarId)),
+    route('POST', '/api/config/ai/test', ({ hogarId }) => services.diagnostics.findWorkingModel(hogarId)),
 
-    route('POST', '/api/chat/messages', ({ body }) =>
+    route('POST', '/api/chat/messages', ({ hogarId, body }) =>
       services.assistant.chat({ hogarId, conversacionId: body.conversacionId, text: body.text }),
     ),
     route('GET', '/api/conversations/:id', ({ params }) => services.assistant.listMessages(params.id)),
   ];
 }
 
-export function createServer({ services, hogarId, publicDir }) {
-  const routes = buildRoutes(services, hogarId);
+export function createServer({ services, hogarId: fallbackHogarId, publicDir }) {
+  const routes = buildRoutes(services);
 
   return createHttpServer(async (req, res) => {
     try {
       const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
       if (url.pathname.startsWith('/api/')) {
         const body = await readJsonBody(req);
-        if (!PUBLIC_API.has(url.pathname)) {
-          const usuario = await currentUser(services.auth, req);
-          if (!usuario) {
-            sendJson(res, 401, { error: 'NO_AUTENTICADO', message: 'Inicia sesión' });
-            return;
-          }
+        const usuario = await currentUser(services.auth, req);
+        if (!PUBLIC_API.has(url.pathname) && !usuario) {
+          sendJson(res, 401, { error: 'NO_AUTENTICADO', message: 'Inicia sesión' });
+          return;
         }
         const match = matchRoute(routes, req.method, url.pathname);
         if (!match) {
@@ -135,7 +145,14 @@ export function createServer({ services, hogarId, publicDir }) {
         const params = Object.fromEntries(
           match.names.map((name, index) => [name, decodeURIComponent(match.values[index])]),
         );
-        const result = await match.handler({ params, body, query: url.searchParams, req });
+        const result = await match.handler({
+          params,
+          body,
+          query: url.searchParams,
+          req,
+          usuario,
+          hogarId: usuario?.hogarId ?? fallbackHogarId,
+        });
         if (result && result.__reply) {
           sendJson(res, result.status, result.body, result.headers);
         } else {

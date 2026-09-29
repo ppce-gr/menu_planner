@@ -49,3 +49,8 @@ export class SessionRepository {
   async get(_token) { throw new Error('SessionRepository.get no implementado'); }
   async remove(_token) { throw new Error('SessionRepository.remove no implementado'); }
 }
+
+export class HogarRepository {
+  async get(_id) { throw new Error('HogarRepository.get no implementado'); }
+  async save(_hogar) { throw new Error('HogarRepository.save no implementado'); }
+}

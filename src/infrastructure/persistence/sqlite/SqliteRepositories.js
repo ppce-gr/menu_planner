@@ -50,6 +50,10 @@ export function createSqliteRepositories({ file }) {
       expira_en TEXT NOT NULL, data TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS sessions_usuario ON sessions(usuario_id);
+
+    CREATE TABLE IF NOT EXISTS hogares (
+      id TEXT PRIMARY KEY, data TEXT NOT NULL
+    );
   `);
 
   const stmt = {
@@ -108,6 +112,12 @@ export function createSqliteRepositories({ file }) {
     ),
     sessionsGet: db.prepare('SELECT data FROM sessions WHERE token = ?'),
     sessionsRemove: db.prepare('DELETE FROM sessions WHERE token = ?'),
+
+    hogaresGet: db.prepare('SELECT data FROM hogares WHERE id = ?'),
+    hogaresSave: db.prepare(
+      `INSERT INTO hogares (id, data) VALUES (?, ?)
+       ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
+    ),
   };
 
   const one = (row) => (row ? JSON.parse(row.data) : null);
@@ -216,6 +226,15 @@ export function createSqliteRepositories({ file }) {
       async remove(token) {
         stmt.sessionsRemove.run(token);
         return true;
+      },
+    },
+    hogares: {
+      async get(id) {
+        return one(stmt.hogaresGet.get(id));
+      },
+      async save(hogar) {
+        stmt.hogaresSave.run(hogar.id, JSON.stringify(hogar));
+        return hogar;
       },
     },
     close() {

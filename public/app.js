@@ -2,6 +2,8 @@ const state = {
   tab: 'semana',
   usuario: null,
   necesitaSetup: false,
+  authMode: 'login',
+  authInfo: { registroAbierto: true, codigoRequerido: false },
   diners: [],
   plans: [],
   plan: null,
@@ -54,8 +56,10 @@ function toast(message, isError = false) {
 
 /* ---------- Autenticación ---------- */
 
-function showAuth({ necesitaSetup = false } = {}) {
+function showAuth({ necesitaSetup = false, registroAbierto = true, codigoRequerido = false } = {}) {
   state.necesitaSetup = necesitaSetup;
+  state.authInfo = { registroAbierto, codigoRequerido };
+  if (necesitaSetup) state.authMode = 'register';
   $('#nav-tabs').classList.add('hidden');
   $('#btn-logout').classList.add('hidden');
   for (const name of ['semana', 'compra', 'chat', 'ajustes']) {
@@ -67,25 +71,40 @@ function showAuth({ necesitaSetup = false } = {}) {
 
 function renderAuth() {
   const setup = state.necesitaSetup;
+  const register = setup || state.authMode === 'register';
+  const puedeRegistrar = state.authInfo.registroAbierto;
+  const titulo = setup ? 'Crea tu usuario' : register ? 'Crear cuenta' : 'Entra';
+  const ayuda = setup
+    ? 'Primera vez: elige un usuario y una contraseña de al menos 6 caracteres. Serás el administrador.'
+    : register
+      ? 'Crea una cuenta; tendrás tu propio hogar, separado del resto.'
+      : 'Introduce tus credenciales para ver tus menús.';
+  const toggle =
+    !setup && puedeRegistrar
+      ? `<button class="tab" id="btn-auth-toggle">${register ? 'Ya tengo cuenta' : 'Crear una cuenta'}</button>`
+      : '';
   $('#view-auth').innerHTML = `
     <div class="card" style="max-width:420px;margin:40px auto">
-      <h2>${setup ? 'Crea tu usuario' : 'Entra'}</h2>
-      <p class="muted">${
-        setup
-          ? 'Primera vez: elige un usuario y una contraseña de al menos 6 caracteres.'
-          : 'Introduce tus credenciales para ver tus menús.'
-      }</p>
+      <h2>${titulo}</h2>
+      <p class="muted">${ayuda}</p>
       <label class="field">Usuario<input id="auth-nombre" autocomplete="username" /></label>
       <label class="field">Contraseña<input id="auth-password" type="password" autocomplete="${
-        setup ? 'new-password' : 'current-password'
+        register ? 'new-password' : 'current-password'
       }" /></label>
       ${
-        setup
+        register
           ? '<label class="field">Repite la contraseña<input id="auth-password2" type="password" autocomplete="new-password" /></label>'
           : ''
       }
+      ${register ? '<label class="field">Nombre del hogar (opcional)<input id="auth-hogar" /></label>' : ''}
+      ${
+        register && state.authInfo.codigoRequerido
+          ? '<label class="field">Código de invitación<input id="auth-codigo" /></label>'
+          : ''
+      }
       <div class="row" style="margin-top:12px">
-        <button class="primary" id="btn-auth">${setup ? 'Crear y entrar' : 'Entrar'}</button>
+        <button class="primary" id="btn-auth">${setup ? 'Crear y entrar' : register ? 'Crear cuenta' : 'Entrar'}</button>
+        ${toggle}
       </div>
     </div>`;
 }
@@ -95,13 +114,14 @@ async function submitAuth() {
   const password = $('#auth-password').value;
   if (!nombre || !password) throw new Error('Rellena usuario y contraseña');
 
-  if (state.necesitaSetup) {
+  const registro = state.necesitaSetup || state.authMode === 'register';
+  if (registro) {
     if (password !== $('#auth-password2').value) throw new Error('Las contraseñas no coinciden');
-    const { status, data } = await rawJson('/auth/setup', {
-      method: 'POST',
-      body: { nombre, password },
-    });
-    if (status !== 200) throw new Error(data.message || 'No se pudo crear el usuario');
+    const body = { nombre, password, hogarNombre: $('#auth-hogar')?.value };
+    if ($('#auth-codigo')) body.codigo = $('#auth-codigo').value;
+    const path = state.necesitaSetup ? '/auth/setup' : '/auth/register';
+    const { status, data } = await rawJson(path, { method: 'POST', body });
+    if (status !== 200) throw new Error(data.message || 'No se pudo crear la cuenta');
   } else {
     const { status, data } = await rawJson('/auth/login', {
       method: 'POST',
@@ -464,6 +484,10 @@ document.addEventListener('click', async (event) => {
   if (!button) return;
   try {
     if (button.id === 'btn-auth') await submitAuth();
+    else if (button.id === 'btn-auth-toggle') {
+      state.authMode = state.authMode === 'register' ? 'login' : 'register';
+      renderAuth();
+    }
     else if (button.id === 'btn-logout') await logout();
     else if (button.id === 'btn-nuevo-plan') await crearPlan();
     else if (button.id === 'btn-cerrar') await cerrarPlan();
@@ -538,7 +562,11 @@ async function init() {
       showTab('semana');
       return;
     }
-    showAuth({ necesitaSetup: Boolean(me.data?.necesitaSetup) });
+    showAuth({
+      necesitaSetup: Boolean(me.data?.necesitaSetup),
+      registroAbierto: me.data?.registroAbierto !== false,
+      codigoRequerido: Boolean(me.data?.codigoRequerido),
+    });
   } catch (error) {
     toast(error.message, true);
   }

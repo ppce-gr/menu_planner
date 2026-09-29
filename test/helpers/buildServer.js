@@ -35,7 +35,9 @@ export function buildTestServer({ hogarId = 'test' } = {}) {
     auth: new AuthService({
       users: repositories.users,
       sessions: repositories.sessions,
+      hogares: repositories.hogares,
       hasher: createPasswordHasher(),
+      defaultHogarId: hogarId,
     }),
     assistant: new AssistantService({
       conversations: repositories.conversations,

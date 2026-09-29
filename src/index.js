@@ -22,6 +22,8 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 const DATA_DIR = process.env.DATA_DIR ?? join(here, '..', 'data');
 const HOGAR_ID = process.env.HOGAR_ID ?? 'hogar-principal';
 const USE_MEMORY = process.env.PERSISTENCE === 'memory';
+const ALLOW_REGISTRATION = process.env.ALLOW_REGISTRATION !== 'false';
+const REGISTRATION_CODE = process.env.REGISTRATION_CODE ?? '';
 
 // SQLite se importa solo si hace falta: así el modo memoria no arrastra el
 // aviso experimental de `node:sqlite`.
@@ -56,7 +58,11 @@ const services = {
   auth: new AuthService({
     users: repositories.users,
     sessions: repositories.sessions,
+    hogares: repositories.hogares,
     hasher: createPasswordHasher(),
+    defaultHogarId: HOGAR_ID,
+    allowRegistration: ALLOW_REGISTRATION,
+    registrationCode: REGISTRATION_CODE,
   }),
   assistant: new AssistantService({
     conversations: repositories.conversations,

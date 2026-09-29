@@ -24,6 +24,8 @@ Variables de entorno:
 | `HOST` | `0.0.0.0` | Interfaz de escucha (todas, para entrar desde la red) |
 | `DATA_DIR` | `./data` | Carpeta de la base de datos SQLite |
 | `SECRET_KEY` | (generada en `data/.secret`) | Cifrado del token de IA |
+| `ALLOW_REGISTRATION` | `true` | `false` cierra el registro de cuentas nuevas |
+| `REGISTRATION_CODE` | (vacío) | Si se define, el registro exige ese código |
 | `AI_ADAPTER` | `echo` | `echo` para probar sin red, `openai` para IA real |
 
 ## Estructura

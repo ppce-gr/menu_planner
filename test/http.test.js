@@ -63,6 +63,8 @@ test('el setup crea el usuario y abre sesión', async () => {
   const me = await json('/api/auth/me');
   assert.equal(me.status, 200);
   assert.equal(me.data.usuario.nombre, 'Ana');
+  assert.equal(me.data.usuario.rol, 'admin');
+  assert.equal(me.data.usuario.hogarId, 'test');
   assert.equal(me.data.necesitaSetup, false);
 });
 
@@ -147,4 +149,20 @@ test('al salir, las rutas vuelven a estar protegidas', async () => {
   assert.equal(status, 200);
   const after = await json('/api/diners');
   assert.equal(after.status, 401);
+});
+
+test('una cuenta nueva se registra con su propio hogar', async () => {
+  const previous = cookie;
+  const registro = await json('/api/auth/register', {
+    method: 'POST',
+    body: { nombre: 'Luis', password: 'secreta2', hogarNombre: 'Casa de Luis' },
+  });
+  assert.equal(registro.status, 200);
+  assert.equal(registro.data.usuario.rol, 'user');
+  assert.notEqual(registro.data.usuario.hogarId, 'test');
+
+  // Su hogar no ve los comensales del primero.
+  const diners = await json('/api/diners');
+  assert.deepEqual(diners.data, []);
+  cookie = previous;
 });

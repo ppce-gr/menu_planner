@@ -5,6 +5,7 @@ const state = {
   authMode: 'login',
   authInfo: { registroAbierto: true, codigoRequerido: false },
   diners: [],
+  dinerEdit: null,
   plans: [],
   plan: null,
   config: null,
@@ -303,21 +304,66 @@ function renderChat() {
   if (log) log.scrollTop = log.scrollHeight;
 }
 
+function dinerFormHtml() {
+  const edit = state.dinerEdit ? state.diners.find((d) => d.id === state.dinerEdit) : null;
+  const comidas = ['desayuno', 'comida', 'cena', 'merienda'];
+  const hechas = new Set(edit?.comidasPorDefecto ?? []);
+  return `
+    <div class="diner-form">
+      <div class="grid2">
+        <label class="field">Nombre<input id="diner-nombre" value="${esc(edit?.nombre ?? '')}" /></label>
+        <label class="field">Edad<input id="diner-edad" type="number" min="0" max="130" value="${esc(edit?.edad ?? '')}" /></label>
+        <label class="field">Dieta (vegana, sin gluten, baja en calorías…)<input id="diner-dieta" value="${esc(edit?.dieta ?? '')}" /></label>
+        <label class="field">Alergias (separadas por comas)<input id="diner-alergias" value="${esc((edit?.alergias ?? []).join(', '))}" /></label>
+      </div>
+      <div class="field">Comidas que hace
+        <div class="checks">
+          ${comidas
+            .map(
+              (c) =>
+                `<label class="check"><input type="checkbox" data-diner-comida="${c}" ${hechas.has(c) ? 'checked' : ''}> ${c}</label>`,
+            )
+            .join('')}
+        </div>
+      </div>
+      <div class="row">
+        <button class="primary" id="btn-guardar-diner">${edit ? 'Guardar cambios' : 'Añadir comensal'}</button>
+        ${edit ? '<button id="btn-cancelar-diner">Cancelar</button>' : ''}
+      </div>
+    </div>`;
+}
+
 function renderAjustes() {
   const config = state.config ?? {};
   const reglas = state.reglas ?? { normas: [], ingredientesProhibidos: [] };
   const diners = state.diners
-    .map((d) => `<li>${esc(d.nombre)}${d.dieta ? ' · ' + esc(d.dieta) : ''}</li>`)
+    .map((d) => {
+      const detalles = [
+        d.edad != null && d.edad !== '' ? `${d.edad} años` : '',
+        d.dieta,
+        (d.alergias ?? []).length ? `alergias: ${d.alergias.join(', ')}` : '',
+        (d.comidasPorDefecto ?? []).length ? d.comidasPorDefecto.join(' + ') : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      return `<div class="diner-item">
+        <div>
+          <strong>${esc(d.nombre)}</strong>
+          ${detalles ? `<div class="log-note">${esc(detalles)}</div>` : ''}
+        </div>
+        <div class="shop-buttons">
+          <button data-diner-edit="${d.id}">Editar</button>
+          <button data-diner-del="${d.id}">Borrar</button>
+        </div>
+      </div>`;
+    })
     .join('');
   $('#view-ajustes').innerHTML = `
     <div class="card">
       <h3>Comensales</h3>
-      <ul>${diners || '<li class="muted">Sin comensales</li>'}</ul>
-      <div class="row">
-        <input id="diner-nombre" placeholder="Nombre" />
-        <input id="diner-dieta" placeholder="Dieta (opcional)" />
-        <button id="btn-add-diner">Añadir</button>
-      </div>
+      <div class="diner-list">${diners || '<p class="muted">Sin comensales todavía.</p>'}</div>
+      <h4>${state.dinerEdit ? 'Editar comensal' : 'Añadir comensal'}</h4>
+      ${dinerFormHtml()}
     </div>
     <div class="card">
       <h3>Asistente de IA</h3>
@@ -507,11 +553,42 @@ async function guardarReglas() {
   render();
 }
 
-async function addDiner() {
-  const nombre = $('#diner-nombre').value.trim();
-  if (!nombre) throw new Error('El comensal necesita un nombre');
-  await api('/diners', { method: 'POST', body: { nombre, dieta: $('#diner-dieta').value } });
+async function guardarDiner() {
+  const body = {
+    nombre: $('#diner-nombre').value.trim(),
+    edad: $('#diner-edad').value,
+    dieta: $('#diner-dieta').value.trim(),
+    alergias: $('#diner-alergias').value,
+    comidasPorDefecto: [...document.querySelectorAll('[data-diner-comida]')]
+      .filter((c) => c.checked)
+      .map((c) => c.dataset.dinerComida),
+  };
+  if (!body.nombre) throw new Error('El comensal necesita un nombre');
+  if (state.dinerEdit) await api(`/diners/${state.dinerEdit}`, { method: 'PATCH', body });
+  else await api('/diners', { method: 'POST', body });
+  state.dinerEdit = null;
   await loadDiners();
+  toast('Comensal guardado');
+  render();
+}
+
+function editarDiner(id) {
+  state.dinerEdit = id;
+  render();
+}
+
+function cancelarEdicionDiner() {
+  state.dinerEdit = null;
+  render();
+}
+
+async function borrarDiner(id) {
+  const diner = state.diners.find((d) => d.id === id);
+  if (!window.confirm(`¿Borrar a ${diner?.nombre ?? 'este comensal'}?`)) return;
+  await api(`/diners/${id}`, { method: 'DELETE' });
+  if (state.dinerEdit === id) state.dinerEdit = null;
+  await loadDiners();
+  toast('Comensal borrado');
   render();
 }
 
@@ -539,9 +616,12 @@ document.addEventListener('click', async (event) => {
     else if (button.id === 'btn-guardar-config') await guardarConfig();
     else if (button.id === 'btn-probar-modelos') await probarModelos();
     else if (button.id === 'btn-guardar-reglas') await guardarReglas();
+    else if (button.id === 'btn-guardar-diner') await guardarDiner();
+    else if (button.id === 'btn-cancelar-diner') cancelarEdicionDiner();
+    else if (button.dataset.dinerEdit) editarDiner(button.dataset.dinerEdit);
+    else if (button.dataset.dinerDel) await borrarDiner(button.dataset.dinerDel);
     else if (button.id === 'btn-chat-toggle') document.body.classList.add('chat-open');
     else if (button.id === 'btn-chat-close') document.body.classList.remove('chat-open');
-    else if (button.id === 'btn-add-diner') await addDiner();
     else if (button.dataset.shop) await setCompra(button.dataset.shop, button.dataset.estado);
   } catch (error) {
     toast(error.message, true);

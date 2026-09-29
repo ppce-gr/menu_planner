@@ -61,9 +61,11 @@ export function buildMessages({
       diners.map((d) => ({
         id: d.id,
         nombre: d.nombre,
+        edad: d.edad ?? null,
         dieta: d.dieta,
         alergias: d.alergias,
         gustos: d.preferencias,
+        comidas: d.comidasPorDefecto,
       })),
     )}`,
     `Contexto de planificación: ${JSON.stringify(context)}`,

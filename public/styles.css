@@ -180,6 +180,9 @@ details ul { margin: 6px 0; padding-left: 20px; }
 .toast.error { border-color: var(--bad); color: #ffd9d6; }
 
 .shop-item { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.diner-list { margin-bottom: 12px; }
+.diner-item { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.diner-form { margin-top: 6px; }
 .shop-item:last-child { border-bottom: 0; }
 .shop-item .state { font-size: 13px; color: var(--muted); }
 .shop-buttons { display: flex; gap: 6px; }

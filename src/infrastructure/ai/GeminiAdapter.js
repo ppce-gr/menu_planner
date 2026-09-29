@@ -1,4 +1,5 @@
 import { AiPort } from '../../domain/ports/AiPort.js';
+import { fetchWithRetry } from './httpRetry.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -18,7 +19,7 @@ export class GeminiAdapter extends AiPort {
       }));
 
     const url = `${BASE}/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(token)}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -38,7 +39,7 @@ export class GeminiAdapter extends AiPort {
   /** Lista los modelos que pueden generar contenido con este token. */
   async listModels({ token } = {}) {
     if (!token) throw new Error('falta el token del proveedor de IA');
-    const response = await fetch(`${BASE}/models?key=${encodeURIComponent(token)}&pageSize=200`);
+    const response = await fetchWithRetry(`${BASE}/models?key=${encodeURIComponent(token)}&pageSize=200`);
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 300);
       throw new Error(`HTTP ${response.status} ${detail}`);

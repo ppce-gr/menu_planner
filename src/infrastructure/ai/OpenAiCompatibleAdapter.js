@@ -1,4 +1,5 @@
 import { AiPort } from '../../domain/ports/AiPort.js';
+import { fetchWithRetry } from './httpRetry.js';
 
 /**
  * Adaptador para cualquier API compatible con OpenAI: OpenAI, DeepSeek, Groq,
@@ -13,7 +14,7 @@ export class OpenAiCompatibleAdapter extends AiPort {
   async chat(messages, { model, temperature, token, baseUrl } = {}) {
     if (!token) throw new Error('falta el token del proveedor de IA');
     const url = `${(baseUrl || this.baseUrl).replace(/\/$/, '')}/chat/completions`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -36,7 +37,7 @@ export class OpenAiCompatibleAdapter extends AiPort {
   async listModels({ token, baseUrl } = {}) {
     if (!token) throw new Error('falta el token del proveedor de IA');
     const url = `${(baseUrl || this.baseUrl).replace(/\/$/, '')}/models`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       headers: { authorization: `Bearer ${token}` },
     });
     if (!response.ok) {

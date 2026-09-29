@@ -1,4 +1,5 @@
 import { AiPort } from '../../domain/ports/AiPort.js';
+import { fetchWithRetry } from './httpRetry.js';
 
 export class AnthropicAdapter extends AiPort {
   async chat(messages, { model, temperature, token } = {}) {
@@ -11,7 +12,7 @@ export class AnthropicAdapter extends AiPort {
       .filter((m) => m.role !== 'system')
       .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

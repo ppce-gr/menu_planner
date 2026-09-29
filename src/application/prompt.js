@@ -1,5 +1,3 @@
-import { OUT_OF_SCOPE_REPLY } from '../domain/ScopeGuard.js';
-
 /**
  * Prompt del asistente. El texto vive en la capa de aplicación; el dominio solo
  * aporta las reglas (alcance del asistente).
@@ -11,10 +9,14 @@ esos alimentos.
 
 ## Alcance
 - Responde en el idioma del usuario.
-- Puedes responder sobre nutrición de alimentos (calorías, macronutrientes).
-- Si te preguntan algo externo a tu cometido (deportes, noticias, el tiempo,
-  política, bolsa…), responde exactamente con esta frase:
-  "${OUT_OF_SCOPE_REPLY}"
+- **Todo** lo relacionado con comida, cocina, recetas, ingredientes, menús,
+  dietas, planificación y nutrición —calorías, macronutrientes, métodos de
+  cocción y electrodomésticos como Thermomix o air fryer— está **dentro de tu
+  cometido**: respóndelo con normalidad.
+- Solo si la petición es **claramente ajena** (deportes, noticias, el tiempo,
+  política, bolsa, entretenimiento…) di, con tus propias palabras, que no
+  trabajas con cosas externas fuera de tu cometido. **Ante la duda, ayuda en vez
+  de rechazar.**
 - No des consejo médico; si procede, deriva a un profesional.
 
 ## Cómo planificar
@@ -39,8 +41,19 @@ esos alimentos.
 {"plan":{"fechaInicio":"AAAA-MM-DD","fechaFin":"AAAA-MM-DD","dias":[{"fecha":"AAAA-MM-DD","comidas":[{"tipo":"comida","receta":{"nombre":"","racionesBase":4,"tiempoMin":30,"utensilios":[],"etiquetas":[],"ingredientes":[{"nombre":"","cantidad":0,"unidad":"g","opcional":false}],"pasos":[]},"comensales":[{"comensalId":"","raciones":1}],"notas":""}]}]},"listaCompraSugerida":[],"preguntasPendientes":[]}
 
 - Las recetas deben ser realistas, con ingredientes y cantidades y pasos breves.
+- La fecha de hoy está en «Datos del hogar»: úsala para resolver «esta semana»,
+  «mañana», etc. **Nunca inventes fechas pasadas.**
 - Si usas algún supuesto (raciones, gustos…), resúmelo en \`notas\` del día o de
   la comida, no fuera del JSON.`;
+
+/** `2026-10-05 (lunes)` en hora local. */
+export function formatToday(date = new Date()) {
+  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day} (${dias[date.getDay()]})`;
+}
 
 /**
  * Monta los mensajes que se envían al adaptador de IA.
@@ -52,11 +65,13 @@ export function buildMessages({
   recipes = [],
   rules = {},
   history = [],
+  today = new Date(),
   userText,
 } = {}) {
   const prohibidos = rules?.ingredientesProhibidos ?? [];
   const normas = rules?.normas ?? [];
   const household = [
+    `Hoy es ${formatToday(today)}.`,
     `Comensales: ${JSON.stringify(
       diners.map((d) => ({
         id: d.id,

@@ -37,3 +37,13 @@ export function isInScope(text) {
 export function scopeGuard(text) {
   return isInScope(text) ? null : OUT_OF_SCOPE_REPLY;
 }
+
+/**
+ * ¿La respuesta del asistente es un rechazo por alcance? Sirve de red de
+ * seguridad: si el modelo rechaza algo que sí es su cometido, reintentamos.
+ */
+export function looksLikeRefusal(text) {
+  return /no trabajo con cosas externas|fuera de mi cometido|no es (mi|de mi) cometido|no puedo ayudarte con (eso|esto)|solo (trabajo|puedo) con (recetas|men[uú]s)/i.test(
+    String(text ?? ''),
+  );
+}

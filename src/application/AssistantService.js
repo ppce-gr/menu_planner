@@ -1,5 +1,5 @@
 import { newId } from '../domain/ids.js';
-import { scopeGuard } from '../domain/ScopeGuard.js';
+import { isInScope, looksLikeRefusal, scopeGuard } from '../domain/ScopeGuard.js';
 import { buildMessages, parsePlanFromReply } from './prompt.js';
 
 /**
@@ -65,12 +65,29 @@ export class AssistantService {
     let reply;
     try {
       const ai = await this.aiFactory(config);
-      reply = await ai.chat(messages, {
+      const options = {
         model: config.modelo,
-        temperature: config.parametros?.temperatura,
+        temperature: config.parametros?.temperatura ?? 0.3,
         baseUrl: config.parametros?.baseUrl,
         token: config.token,
-      });
+      };
+      reply = await ai.chat(messages, options);
+
+      // Red de seguridad: si el modelo rechaza algo que sí es su cometido, se le
+      // da una segunda oportunidad con un aviso explícito.
+      if (looksLikeRefusal(reply) && isInScope(contenido)) {
+        reply = await ai.chat(
+          [
+            ...messages,
+            {
+              role: 'system',
+              content:
+                'Aviso: la petición del usuario es sobre comida, menús, cocina o nutrición y está dentro de tu cometido. No la rechaces: respóndela o pide los datos que falten.',
+            },
+          ],
+          options,
+        );
+      }
     } catch (error) {
       reply = `No he podido contactar con la IA (${error.message}). Revisa la configuración y el token.`;
       await this.conversations.saveMessage({

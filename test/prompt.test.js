@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parsePlanFromReply } from '../src/application/prompt.js';
+import { buildMessages, formatToday, parsePlanFromReply } from '../src/application/prompt.js';
 
 const planObj = {
   plan: {
@@ -60,4 +60,11 @@ test('ignora llaves dentro de textos de las recetas', () => {
 test('no confunde un JSON sin plan y devuelve null si no hay nada', () => {
   assert.equal(parsePlanFromReply('{"otra":"cosa"}'), null);
   assert.equal(parsePlanFromReply('solo texto, sin json'), null);
+});
+
+test('la fecha de hoy viaja en el prompt para resolver «esta semana»', () => {
+  const lunes = new Date(2026, 9, 5); // 5 de octubre de 2026, lunes
+  assert.equal(formatToday(lunes), '2026-10-05 (lunes)');
+  const messages = buildMessages({ diners: [], userText: 'Planifica esta semana', today: lunes });
+  assert.match(messages[0].content, /Hoy es 2026-10-05 \(lunes\)/);
 });

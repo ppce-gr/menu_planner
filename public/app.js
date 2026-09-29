@@ -278,14 +278,26 @@ function renderCompra() {
   $('#view-compra').innerHTML = `<div class="card"><h3>Lista de la compra</h3>${items}</div>`;
 }
 
+/** Quita el bloque JSON del plan para no enseñarlo como texto. */
+function stripPlanJson(text) {
+  return String(text ?? '')
+    .replace(/```(?:json)?[\s\S]*?```/gi, '')
+    .replace(/\{\s*"plan"[\s\S]*$/i, '')
+    .trim();
+}
+
 function renderChat() {
   const body = $('#chat-body');
   if (!body) return;
   const mensajes = state.messages
-    .map(
-      (m) =>
-        `<div class="msg ${m.rol === 'usuario' ? 'user' : 'assistant'}">${esc(m.contenido)}</div>`,
-    )
+    .map((m) => {
+      const texto = m.rol === 'usuario' ? m.contenido : stripPlanJson(m.contenido);
+      const mostrar =
+        texto ||
+        (m.rol === 'usuario' ? '' : '✅ He preparado la semana; mírala en la pestaña Semana.');
+      if (!mostrar) return '';
+      return `<div class="msg ${m.rol === 'usuario' ? 'user' : 'assistant'}">${esc(mostrar)}</div>`;
+    })
     .join('');
   const apply = state.lastPlan
     ? '<div class="row"><button class="primary" id="btn-aplicar">Aplicar plan a la semana</button></div>'
@@ -491,9 +503,18 @@ async function enviarChat() {
   state.messages.push({ rol: 'asistente', contenido: response.reply });
   state.lastPlan = response.plan ?? null;
   renderChat();
+
+  // Si el asistente ha devuelto un plan, se interpreta y se vuelca solo.
+  if (state.lastPlan) {
+    try {
+      await aplicarPlan({ irASemana: false });
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
 }
 
-async function aplicarPlan() {
+async function aplicarPlan({ irASemana = true } = {}) {
   if (!state.lastPlan) return;
   let plan = state.plan;
   if (!plan) {
@@ -503,10 +524,13 @@ async function aplicarPlan() {
     });
   }
   state.plan = await api(`/plans/${plan.id}/apply`, { method: 'POST', body: { plan: state.lastPlan } });
+  const dias = state.plan.dias.length;
+  const comidas = state.plan.dias.reduce((n, d) => n + d.comidas.length, 0);
   state.lastPlan = null;
   await loadPlans();
-  showTab('semana');
-  toast('Plan aplicado a la semana');
+  if (irASemana) showTab('semana');
+  else render();
+  toast(`Semana preparada: ${dias} días y ${comidas} comidas`);
 }
 
 async function guardarConfig() {

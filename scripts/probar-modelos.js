@@ -38,6 +38,13 @@ if (!token) {
   const ai = await createAiFactory()({ proveedor, token, parametros: stored.parametros });
   console.log(`Proveedor: ${proveedor}`);
 
+  // Si el token llega por variable de entorno, se guarda cifrado para no
+  // tener que pegarlo en la interfaz.
+  if (process.env.AI_TOKEN) {
+    await configService.saveAiConfig(HOGAR_ID, { token, proveedor, activo: true });
+    console.log('Token guardado (cifrado) en la configuración.');
+  }
+
   const models = rankModels(
     await ai.listModels({ token, baseUrl: stored.parametros?.baseUrl }),
   );

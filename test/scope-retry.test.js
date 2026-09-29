@@ -56,3 +56,18 @@ test('un tema externo lo corta el dominio sin llamar al modelo', async () => {
   assert.equal(calls, 0);
   assert.equal(response.offScope, true);
 });
+
+test('si el plan sale incompleto, se pide otra vez', async () => {
+  let calls = 0;
+  const incompleto = '```json\n{"plan":{"fechaInicio":"2026-10-05","dias":[';
+  const completo =
+    '```json\n{"plan":{"fechaInicio":"2026-10-05","fechaFin":"2026-10-11","dias":[]},"preguntasPendientes":[]}\n```';
+  const { assistant } = build(async () => {
+    calls += 1;
+    return calls === 1 ? incompleto : completo;
+  });
+
+  const response = await assistant.chat({ hogarId: 'h1', text: 'Planifica la semana del 5 de octubre' });
+  assert.equal(calls, 2);
+  assert.equal(response.plan?.fechaInicio, '2026-10-05');
+});

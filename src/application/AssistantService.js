@@ -88,6 +88,22 @@ export class AssistantService {
           options,
         );
       }
+
+      // Si intentó planificar pero el JSON salió incompleto, otra oportunidad.
+      if (!parsePlanFromReply(reply) && /"plan"|"dias"\s*:/.test(reply)) {
+        reply = await ai.chat(
+          [
+            ...messages,
+            { role: 'assistant', content: reply.slice(0, 6000) },
+            {
+              role: 'user',
+              content:
+                'El JSON anterior estaba incompleto o mal formado. Devuélvelo ENTERO y bien formado en un único bloque ```json, sin cortarlo.',
+            },
+          ],
+          options,
+        );
+      }
     } catch (error) {
       reply = `No he podido contactar con la IA (${error.message}). Revisa la configuración y el token.`;
       await this.conversations.saveMessage({

@@ -44,8 +44,13 @@ docs/              documentación
 
 ## Despliegue
 
-Ver [`docs/despliegue.md`](docs/despliegue.md): systemd + Tailscale (privado o
-Funnel para una URL HTTPS gratuita).
+Ver [`docs/despliegue.md`](docs/despliegue.md):
+
+- **Raspberry + systemd** con **Tailscale** (privado) o **Funnel** para una URL
+  HTTPS gratuita.
+- **Docker** para cualquier hosting de contenedores (con un volumen persistente
+  para `DATA_DIR`). Netlify por sí solo no puede: es un servidor Node con
+  SQLite, no un sitio estático.
 
 ## Estado
 

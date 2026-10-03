@@ -1,10 +1,29 @@
 import { DomainError } from './errors.js';
 import { forbiddenIngredientIn } from './HouseRules.js';
+import { normalizeMealType } from './MealTypes.js';
 
 /**
  * Reglas de la planificación: validación del plan que devuelve la IA y cálculo
  * de la compra. Dominio puro.
  */
+
+/**
+ * Normaliza el plan que devuelve la IA: los tipos de comida pasan a los
+ * canónicos (`desayuno`, `comida`, `merienda`, `cena`).
+ */
+export function normalizeAiPlan(plan) {
+  if (!plan || typeof plan !== 'object') return plan;
+  return {
+    ...plan,
+    dias: (plan.dias ?? []).map((dia) => ({
+      ...dia,
+      comidas: (dia.comidas ?? []).map((comida) => ({
+        ...comida,
+        tipo: normalizeMealType(comida?.tipo),
+      })),
+    })),
+  };
+}
 
 /**
  * Escala los ingredientes de una receta al número de raciones pedido.

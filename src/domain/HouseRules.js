@@ -1,18 +1,13 @@
+import { normalizeText } from './text.js';
+
 /**
  * Normas del hogar: reglas permanentes que el asistente debe respetar siempre
  * al planificar. El dominio las normaliza y sabe comprobar su cumplimiento.
  */
 
-export const EMPTY_RULES = { normas: [], ingredientesProhibidos: [] };
+export { normalizeText };
 
-/** minusculas, sin acentos y sin espacios sobrantes */
-export function normalizeText(value) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
+export const EMPTY_RULES = { normas: [], ingredientesProhibidos: [] };
 
 function asStringList(value) {
   if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);

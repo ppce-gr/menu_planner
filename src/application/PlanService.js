@@ -1,6 +1,6 @@
 import { newId } from '../domain/ids.js';
 import { DomainError } from '../domain/errors.js';
-import { shoppingEntriesFromPlan, validateAiPlan } from '../domain/PlanValidator.js';
+import { normalizeAiPlan, shoppingEntriesFromPlan, validateAiPlan } from '../domain/PlanValidator.js';
 import { consolidate, markAsAtHome } from '../domain/ShoppingList.js';
 
 const SHOPPING_STATES = ['pendiente', 'comprado', 'enCasa', 'descartado'];
@@ -47,14 +47,15 @@ export class PlanService {
     const reglas = this.hogarService
       ? await this.hogarService.getRules(plan.hogarId)
       : { ingredientesProhibidos: [] };
-    validateAiPlan(aiPlan, {
+    const normalizado = normalizeAiPlan(aiPlan);
+    validateAiPlan(normalizado, {
       dinerIds: diners.map((d) => d.id),
       ingredientesProhibidos: reglas.ingredientesProhibidos ?? [],
     });
 
-    plan.fechaInicio = aiPlan.fechaInicio;
-    plan.fechaFin = aiPlan.fechaFin;
-    plan.dias = aiPlan.dias.map((dia) => ({
+    plan.fechaInicio = normalizado.fechaInicio;
+    plan.fechaFin = normalizado.fechaFin;
+    plan.dias = normalizado.dias.map((dia) => ({
       fecha: dia.fecha,
       comidas: dia.comidas.map((comida) => ({
         id: newId(),
